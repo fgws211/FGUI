@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using FairyGUI;
@@ -45,6 +46,7 @@ public static class FGUI
         if (packages_Debug.Length > 0)
         {
             isAwake = true;
+                
             PreCreateAll();
             Debug.Log($"已加载包: {packages_Debug}");
         }
@@ -107,7 +109,7 @@ public static class FGUI
     }
     
     /// <summary>
-    /// 隐藏主UI
+    /// 隐藏UI
     /// </summary>
     public static void CloseUI(GComponent FGUI)
     {
@@ -161,12 +163,107 @@ public static class FGUI
     }
     
     /// <summary>
+    /// 给界面里的滑条绑定值变化事件：界面名 + 滑条相对路径
+    /// </summary>
+    /// <param name="uiName">界面组件名，如 "setting_pop"</param>
+    /// <param name="sliderPath">滑条相对路径，如 "n10"</param>
+    /// <param name="onChanged">拖动回调，参数是当前值（0~100）</param>
+    public static void BindSlider(string uiName, string sliderPath, Action<float> onChanged)
+    {
+        if (!isAwake) Awake();
+
+        if (!uiCache.TryGetValue(uiName, out GComponent ui))
+        {
+            ui = CreateUI(uiName);          // 缓存没有 → 动态创建
+            if (ui == null) return;         // 所有包都找不到才退出
+        }
+
+        GObject obj = ui;
+        string[] parts = sliderPath.Split('/');
+        foreach (string part in parts)
+        {
+            if (obj is GComponent comp) obj = comp.GetChild(part);
+            if (obj == null)
+            {
+                Debug.LogError($"滑条路径 '{sliderPath}' 中 '{part}' 不存在");
+                return;
+            }
+        }
+
+        GSlider slider = obj as GSlider;
+        if (slider == null)
+        {
+            Debug.LogError($"'{uiName}/{sliderPath}' 不是 GSlider 类型");
+            return;
+        }
+
+        slider.onChanged.Add(() =>
+        {
+            onChanged?.Invoke((float)slider.value);
+        });
+        Debug.Log($"滑条 '{uiName}/{sliderPath}' 绑定成功");
+    }
+    
+    /// <summary>
+    /// 设置界面中某控件控制器的页码（如星星亮暗、按钮文字切换）
+    /// </summary>
+    /// <param name="uiName">界面组件名，如 "reward_pop"</param>
+    /// <param name="path">控件相对路径，如 "n3/n0"（n3 里的第 1 颗星）</param>
+    /// <param name="controllerName">控制器名，如 "c1"（星星）或 "button"（按钮）</param>
+    /// <param name="index">页码（0 起）</param>
+    public static void SetController(string uiName, string path, string controllerName, int index)
+    {
+        if (!isAwake) Awake();
+
+        if (!uiCache.TryGetValue(uiName, out GComponent ui))
+        {
+            ui = CreateUI(uiName);
+            if (ui == null) return;
+        }
+
+        // 按路径逐层往下找控件（支持 n3/n0 这种嵌套路径）
+        GObject obj = ui;
+        if (!string.IsNullOrEmpty(path))
+        {
+            string[] parts = path.Split('/');
+            foreach (string part in parts)
+            {
+                if (obj is GComponent comp) obj = comp.GetChild(part);
+                if (obj == null)
+                {
+                    Debug.LogError($"控件路径 '{path}' 中 '{part}' 不存在");
+                    return;
+                }
+            }
+        }
+
+        var target = obj as GComponent;
+        if (target == null)
+        {
+            Debug.LogError($"'{uiName}/{path}' 不是 GComponent 类型，无法设控制器");
+            return;
+        }
+
+        var controller = target.GetController(controllerName);
+        if (controller == null)
+        {
+            Debug.LogError($"'{uiName}/{path}' 没有控制器 '{controllerName}'");
+            return;
+        }
+
+        controller.selectedIndex = index;
+        Debug.Log($"控制器 '{uiName}/{path}/{controllerName}' 设为 {index}");
+    }
+    
+    /// <summary>
     /// 动态创建界面：遍历所有包查找组件，创建成功写入缓存（只创建不渲染）
     /// </summary>
     private static GComponent CreateUI(string resName)
     {
         foreach (UIPackage pkg in loadedPkgs)
         {
+            if (pkg.GetItemByName(resName) == null) continue;
+            
             GObject obj = UIPackage.CreateObject(pkg.name, resName);
             if (obj == null) continue;              // 这个包里没有，试下一个包
 
