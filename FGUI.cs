@@ -73,6 +73,16 @@ public static class FGUI
         Debug.Log($"预创建完成，共 {count} 个组件");
     }
     
+    
+    /// <summary>锁死按钮图标页：置空 GButton 内部控制器引用，状态机不再切页（用于页名非 up/down/over 的按钮）</summary>
+    public static void LockButtonPage(GButton btn)
+    {
+        typeof(GButton).GetField("_buttonController",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.SetValue(btn, null);
+    }
+
+    
     #endregion
     
     
@@ -101,8 +111,8 @@ public static class FGUI
             return ui;
         }
 
-        GRoot.inst.AddChild(ui);
         ui.MakeFullScreen();
+        GRoot.inst.AddChild(ui);
         if (isPopup) FGUIStack.Add(ui);     // 只有弹窗进栈
         Debug.Log($"打开UI: {resName}" + (isPopup ? "（弹窗）" : ""));
         return ui;

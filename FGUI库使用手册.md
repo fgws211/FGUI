@@ -1,6 +1,6 @@
 ﻿# FGUI 库使用手册
 
-> **当前版本：v1.1.0** ｜ 更新日志见 `CHANGELOG.md`
+> **当前版本：V2.0** ｜ 更新日志见 `README.md`
 >
 > 本手册面向团队开发者，帮助快速上手 FGUI 封装库（`FGUI.cs` + `FGUIManager.cs`）。
 
@@ -173,6 +173,27 @@ FGUI.SetController("daily", "dayBtn", "c2", 0);
 
 ---
 
+### `void FGUI.LockButtonPage(GButton btn)`
+
+**锁死按钮的状态机。** 用反射把按钮内部的 `_buttonController` 置空，FGUI 不再自动切换按钮的 up/over/down 页面，按钮"死"在初始状态，只能由 `SetController` 手动控制。
+
+| 参数  | 说明                           |
+|-------|--------------------------------|
+| `btn` | 要锁死的按钮（`GButton` 实例） |
+
+```csharp
+// 拿到按钮后锁死（前提：按钮控制器页名不是标准的 up/over/down）
+GComponent daily = FGUI.OpenFGUI("daily");
+GButton dayBtn = daily.GetChild("dayBtn").asButton;
+FGUI.LockButtonPage(dayBtn);
+```
+
+> **什么时候用：** 按钮的控制器页名不是标准 `up/over/down` 时（如你们的 `bt_yellow` 用的是 `white/brown/guide`），FGUI 自动切页会切到不存在的页名导致状态错乱——锁死后由你代码全权控制。
+>
+> **⚠️ 注意：** 这是反射操作 FGUI 内部私有字段，SDK 升级后 `_buttonController` 字段名如果变了此方法会静默失效（不报错），升级 SDK 后注意回归测试。
+
+---
+
 ### `void FGUI.CloseUI(GComponent ui)`
 
 **关闭界面。** 从屏幕上移除，**不销毁、不清缓存**，下次 `OpenFGUI` 直接复用。
@@ -291,6 +312,15 @@ FGUI.SetController("daily", "dayBtn", "c2", 0);
 FGUI.SetController("daily", "dayBtn", "c3", 1);
 ```
 
+### 模式 7：非标准页名按钮锁死
+
+```csharp
+// bt_yellow 这种按钮控制器页名是 white/brown/guide，FGUI 自动切页会错乱：
+GButton btn = FGUI.OpenFGUI("Game").GetChild("n8").asButton;
+FGUI.LockButtonPage(btn);                       // 锁死，禁止自动切页
+// 之后用 SetController 手动控制
+```
+
 ---
 
 ## 六、注意事项（坑）
@@ -333,6 +363,7 @@ FGUI.cs（静态类）
 ├── BindButton()       绑定按钮（查缓存 → 无则创建 → 递归找按钮）
 ├── BindSlider()       绑定滑条值变化（回调当前值）
 ├── SetController()    设置控件控制器页码（状态切换）
+├── LockButtonPage()   锁死按钮状态机（反射，非标准页名按钮用）
 ├── CreateUI()         动态创建界面（遍历所有包查找）
 ├── CloseUI()          关闭界面
 ├── CloseAllPopups()   关闭所有弹窗
